@@ -1,3 +1,8 @@
+## luaish for Windows
+This is a port of Steve Donovan's [luaish](https://github.com/stevedonovan/luaish) to Windows.
+
+It depends on [winapi](https://github.com/stevedonovan/winapi), [LuaFileSystem](https://github.com/keplerproject/luafilesystem), [Penlight](https://github.com/stevedonovan/Penlight) and [lua-linenoise-windows](https://github.com/Choonster/lua-linenoise-windows).
+
 ## A better REPL for Lua
 
 luaish is based on [lua.lua](http://lua-users.org/wiki/LuaInterpreterInLua) which is a Lua interpreter front-end written in Lua by David Manura.

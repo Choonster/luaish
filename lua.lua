@@ -17,11 +17,17 @@ local LUA_PROMPT2  = ">> "
 local function LUA_QL(x) return "'" .. x .. "'" end
 
 local lua51 = _VERSION:match '5%.1$'
+local luaJIT = pcall(require, "jit")
 -- Variables analogous to those in lua.h
 local LUA_RELEASE, LUA_COPYRIGHT, eof_ender
 if lua51 then
-	LUA_RELEASE   = "Lua 5.1.4"
-	LUA_COPYRIGHT = "Copyright (C) 1994-2008 Lua.org, PUC-Rio"
+	if luaJIT then
+		LUA_RELEASE = "LuaJIT 2.0.1"
+		LUA_COPYRIGHT = "Copyright (C) 2005-2013 Mike Pall. http://luajit.org/"
+	else
+		LUA_RELEASE   = "Lua 5.1.4"
+		LUA_COPYRIGHT = "Copyright (C) 1994-2008 Lua.org, PUC-Rio"
+	end
 	eof_ender = LUA_QL("<eof>")
 else
 	LUA_RELEASE   = "Lua 5.2.0"

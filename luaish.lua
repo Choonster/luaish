@@ -1,6 +1,8 @@
-local have_ml,ml = pcall(require, 'ml')
-local posix = require 'posix'
-local linenoise = require 'linenoise'
+local winapi = require("winapi")
+local lfs = require("lfs")
+local path = require("pl.path")
+local pretty = require("pl.pretty")
+local linenoise = require("linenoise")
 local lsh = { tostring = tostring }
 local append = table.insert
 
@@ -8,6 +10,14 @@ io.write "luaish (c) Steve Donovan 2012\n"
 
 local our_completions, our_history = {}
 local  our_line_handlers, our_shortcuts = {} ,{}
+
+local function gethomedir()
+	local home = os.getenv('HOME') -- This logic is from Penlight's path.expanduser function
+	if not home then -- has to be Windows
+		home = os.getenv 'USERPROFILE' or (os.getenv 'HOMEDRIVE' .. os.getenv 'HOMEPATH')
+	end
+	return home
+end
 
 local function is_pair_iterable(t)
     local mt = getmetatable(t)
@@ -156,7 +166,7 @@ end
 function lsh.lsetenv (f)
     local line = f:read()
     local var, value = line:match '^(%S+) "(.-)"$'
-    posix.setenv(var,value)
+    winapi.setenv(var,value)
 end
 
 lsh ['>'] = function(f,name)
@@ -186,7 +196,7 @@ local push, pop = append, table.remove
 local dirstack = {}
 
 local function is_directory(path)
-    return posix.stat(path,'type') == 'directory'
+    return lfs.attributes(path, "mode") == "directory"
 end
 
 function path_candidates(line)
@@ -199,10 +209,10 @@ function path_candidates(line)
     path,name = path:sub(1,i1-1), path:sub(i1)
     local fullpath, sc, dpath = path,at(path,1),path
     if sc == '~' then
-        path = os.getenv 'HOME'..'/'..path:sub(3)
+        path = gethomedir()..'/'..path:sub(3)
         fullpath = path 
     elseif sc ~= '/' then
-        fullpath = posix.getcwd()
+        fullpath = lfs.currentdir()
         if path ~= '' then
             fullpath = fullpath ..'/'..path
         else
@@ -213,8 +223,8 @@ function path_candidates(line)
     if not is_directory(fullpath) then return end
     local res = {}
     local all = name == ''
-    for _,f in ipairs(posix.dir(path)) do
-        if all or f:sub(1,#name)==name then
+    for f in lfs.dir(path) do
+        if (f ~= "." and f ~= "..") and (all or f:sub(1,#name)==name) then
             push(res,front..dpath..f)
         end
     end
@@ -225,13 +235,13 @@ function path_candidates(line)
 end
 
 local function set_title(msg)
-    msg = msg or posix.getcwd()
+    msg = msg or lfs.currentdir()
     io.write("\027]2;luai "..msg.."\007")
 end
 
 local function change_directory(dir)    
-    posix.chdir(dir)
-    set_title(posix.getcwd())
+    lfs.chdir(dir)
+    set_title(lfs.currentdir())
     print(dir)
 end
 
@@ -319,11 +329,11 @@ function shell_command_handler (line)
             if k then
                 arg = arg:gsub('%-','../',k)
             end
-            arg = arg:gsub('^~',os.getenv 'HOME')
+            arg = arg:gsub('^~', gethomedir())
 	    if not is_directory(arg) then
-		arg = posix.dirname(arg)
+		arg = path.dirname(arg)
 	    end
-            push(dirstack,posix.getcwd())
+            push(dirstack,lfs.currentdir())
             change_directory(arg)            
         elseif cmd == 'l' then
             if args == '' then
@@ -350,19 +360,16 @@ function shell_command_handler (line)
     end
 end
 
-local home = os.getenv 'HOME'  	
+local home = gethomedir() 	
 linenoise.setcompletion(completion_handler)
 our_history = home..'/.luai-history'
 linenoise.historyload(our_history)	
 lsh.add_line_handler(shell_command_handler)
 lsh.add_completion('^%.',path_candidates)
 
--- microlight isn't essential, but it gives you better
--- output; tables will be printed out
-if have_ml then
-	lsh.set_tostring(ml.tstring)
-        _G.ml = ml
-end
+-- Use Penlight for pretty-printing tables
+lsh.set_tostring(pretty.write)
+
 local ok
 ok,_G.config = pcall(require,'config')
 
@@ -371,10 +378,10 @@ lsh.set_shortcuts {
 	rt = "return ",
 }	
 
-_G.posix = posix
+_G.winapi = winapi
 _G.luaish = lsh -- global for rc file
 
-lsh.add_alias('dir','ls -1 %s |-lf')
+lsh.add_alias('dir','dir %s |-lf')
 lsh.add_alias('locate','locate %s |-lf')
 
 local luarc =  home..'/.luairc.lua'
